@@ -42,7 +42,7 @@ def main():
     num_epochs = args.epoch
 
     wandb_run = wandb.init(entity="hails",
-                           project="TagNet - NumObj",
+                           project="TagNet - NumObj dk",
                            config=args.__dict__,
                            name="[MLP]NumObj_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
@@ -131,10 +131,14 @@ def main():
             total_samples_c += bs_c
             total_samples_stl += bs_stl
 
-        if total_samples_m == 0: total_samples_m = 1
-        if total_samples_s == 0: total_samples_s = 1
-        if total_samples_c == 0: total_samples_c = 1
-        if total_samples_stl == 0: total_samples_stl = 1
+        if total_samples_m == 0: 
+            total_samples_m = 1
+        if total_samples_s == 0: 
+            total_samples_s = 1
+        if total_samples_c == 0: 
+            total_samples_c = 1
+        if total_samples_stl == 0:
+            total_samples_stl = 1
 
         mnist_avg_loss = total_mnist_loss / len(mnist_loader)
         svhn_avg_loss = total_svhn_loss / len(svhn_loader)

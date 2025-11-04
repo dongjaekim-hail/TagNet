@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from functions.GumbelTauScheduler import GumbelTauScheduler
-from model.TagNet import TagNet32, TagNet_weights
+from model.TagNet import TagNet32, TagNet32_woLayernorm, TagNet_weights
 from dataloader.data_loader import data_loader
 import math
 import wandb
@@ -36,7 +36,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=200)
     parser.add_argument('--num_partition', type=int, default=2)
     parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--num_domains', type=int, default=2)
+    parser.add_argument('--num_domains', type=int, default=4)
     parser.add_argument('--pre_classifier_out', type=int, default=1024)
     parser.add_argument('--part_layer', type=int, default=1024)
 
@@ -68,7 +68,7 @@ def main():
     wandb_run = wandb.init(entity="hails",
                            project="TagNet - NumObj dk",
                            config=args.__dict__,
-                           name="[TagnetMLP]NumObj_lr:" + str(args.lr)
+                           name="[TagnetMLP]NumObj_UniqueDomain_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
                                 + "_PLayer:" + str(args.part_layer)
                                 + "_spe:" + str(args.reg_alpha)
@@ -85,7 +85,7 @@ def main():
 
     print("Data load complete, start training")
 
-    model = TagNet32(num_classes=args.num_classes,
+    model = TagNet32_woLayernorm(num_classes=args.num_classes,
                      pre_classifier_out=args.pre_classifier_out,
                      n_partition=args.num_partition,
                      part_layer=args.part_layer,
@@ -150,10 +150,11 @@ def main():
             stl_images, stl_labels = stl_data
             stl_images, stl_labels = stl_images.to(device), stl_labels.to(device)
 
+            # [TODO] each domain has different domain label
             mnist_dlabels = torch.full((mnist_images.size(0),), 0, dtype=torch.long, device=device)
-            svhn_dlabels = torch.full((svhn_images.size(0),), 0, dtype=torch.long, device=device)
-            cifar_dlabels = torch.full((cifar_images.size(0),), 1, dtype=torch.long, device=device)
-            stl_dlabels = torch.full((stl_images.size(0),), 1, dtype=torch.long, device=device)
+            svhn_dlabels = torch.full((svhn_images.size(0),), 1, dtype=torch.long, device=device)
+            cifar_dlabels = torch.full((cifar_images.size(0),), 2, dtype=torch.long, device=device)
+            stl_dlabels = torch.full((stl_images.size(0),), 3, dtype=torch.long, device=device)
 
             optimizer.zero_grad()
 
