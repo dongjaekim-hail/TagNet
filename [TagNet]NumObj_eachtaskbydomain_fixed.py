@@ -24,14 +24,14 @@ parser.add_argument('--min_tau', type=float, default=0.1)
 parser.add_argument('--tau_decay', type=float, default=0.97)
 
 # Optimizer
-parser.add_argument('--lr', type=float, default=1e-2)
+parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--momentum', type=float, default=0.90)
 parser.add_argument('--opt_decay', type=float, default=1e-6)
 
 # parameter lr amplifier
 parser.add_argument('--prefc_lr', type=float, default=1.0)
 parser.add_argument('--fc_lr', type=float, default=1.0)
-parser.add_argument('--disc_lr', type=float, default=0.2)
+parser.add_argument('--disc_lr', type=float, default=1.0)
 parser.add_argument('--switcher_lr', type=float, default=0.2)
 
 # regularization
