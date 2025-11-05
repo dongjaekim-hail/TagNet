@@ -36,7 +36,7 @@ parser.add_argument('--switcher_lr', type=float, default=0.05)
 
 # regularization
 parser.add_argument('--reg_alpha', type=float, default=0.001)
-parser.add_argument('--reg_beta', type=float, default=0.001)
+parser.add_argument('--reg_beta', type=float, default=0.01)
 parser.add_argument('--lambda_p', type=float, default=0.1)
 
 args = parser.parse_args()
@@ -135,7 +135,7 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         cifar_part_gumbel = part_gumbel[bs_m + bs_s: bs_m + bs_s + bs_c]
         stl_part_gumbel = part_gumbel[bs_m + bs_s + bs_c:]
 
-        if i % 1 == 0:
+        if i % 5 == 0:
             print(f"--- [Epoch {epoch + 1}, Batch {i}] Partition Stats ---")
             mnist_counts = torch.bincount(mnist_part_idx, minlength=args.num_partition)
             svhn_counts = torch.bincount(svhn_part_idx, minlength=args.num_partition)
