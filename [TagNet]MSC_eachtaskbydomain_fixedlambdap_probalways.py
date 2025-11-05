@@ -73,44 +73,37 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
     total_mnist_domain_loss, total_mnist_domain_correct, total_mnist_loss, total_mnist_correct = 0, 0, 0, 0
     total_svhn_domain_loss, total_svhn_domain_correct, total_svhn_loss, total_svhn_correct = 0, 0, 0, 0
     total_cifar_domain_loss, total_cifar_domain_correct, total_cifar_loss, total_cifar_correct = 0, 0, 0, 0
-    total_stl_domain_loss, total_stl_domain_correct, total_stl_loss, total_stl_correct = 0, 0, 0, 0
     total_domain_loss, total_label_loss, total_loss = 0, 0, 0
     total_specialization_loss, total_diversity_loss = 0, 0
 
     mnist_partition_counts = torch.zeros(args.num_partition, device=device)
     svhn_partition_counts = torch.zeros(args.num_partition, device=device)
     cifar_partition_counts = torch.zeros(args.num_partition, device=device)
-    stl_partition_counts = torch.zeros(args.num_partition, device=device)
 
-    total_samples_m, total_samples_s, total_samples_c, total_samples_stl = 0, 0, 0, 0
+    total_samples_m, total_samples_s, total_samples_c  = 0, 0, 0 
 
     mnist_label_partition_counts = torch.zeros(args.num_classes, args.num_partition, device=device)
     svhn_label_partition_counts = torch.zeros(args.num_classes, args.num_partition, device=device)
     cifar_label_partition_counts = torch.zeros(args.num_classes, args.num_partition, device=device)
-    stl_label_partition_counts = torch.zeros(args.num_classes, args.num_partition, device=device)
 
-    for i, (mnist_data, svhn_data, cifar_data, stl_data) in enumerate(data_loader_zip):
+    for i, (mnist_data, svhn_data, cifar_data) in enumerate(data_loader_zip):
         mnist_images, mnist_labels = mnist_data
         mnist_images, mnist_labels = mnist_images.to(device), mnist_labels.to(device)
         svhn_images, svhn_labels = svhn_data
         svhn_images, svhn_labels = svhn_images.to(device), svhn_labels.to(device)
         cifar_images, cifar_labels = cifar_data
         cifar_images, cifar_labels = cifar_images.to(device), cifar_labels.to(device)
-        stl_images, stl_labels = stl_data
-        stl_images, stl_labels = stl_images.to(device), stl_labels.to(device)
 
         # [TODO] each domain has different domain label
         mnist_dlabels = torch.full((mnist_images.size(0),), 0, dtype=torch.long, device=device)
         svhn_dlabels = torch.full((svhn_images.size(0),), 1, dtype=torch.long, device=device)
         cifar_dlabels = torch.full((cifar_images.size(0),), 2, dtype=torch.long, device=device)
-        stl_dlabels = torch.full((stl_images.size(0),), 3, dtype=torch.long, device=device)
 
         if not inference:
             optimizer.zero_grad()
 
-        bs_m, bs_s, bs_c, bs_stl = mnist_images.size(0), svhn_images.size(0), cifar_images.size(0), stl_images.size(
-            0)
-        all_images = torch.cat((mnist_images, svhn_images, cifar_images, stl_images), dim=0)
+        bs_m, bs_s, bs_c= mnist_images.size(0), svhn_images.size(0), cifar_images.size(0)
+        all_images = torch.cat((mnist_images, svhn_images, cifar_images), dim=0)
 
         # TODO here, I think part_gumbel is meaningless. it must be the probability before gumbel sampling
         out_part, domain_out, part_idx, part_gumbel = model(all_images, alpha=lambda_p, tau=tau, inference=False)
@@ -118,31 +111,26 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         mnist_out_part = out_part[:bs_m]
         svhn_out_part = out_part[bs_m: bs_m + bs_s]
         cifar_out_part = out_part[bs_m + bs_s: bs_m + bs_s + bs_c]
-        stl_out_part = out_part[bs_m + bs_s + bs_c:]
 
         mnist_domain_out = domain_out[:bs_m]
         svhn_domain_out = domain_out[bs_m: bs_m + bs_s]
         cifar_domain_out = domain_out[bs_m + bs_s: bs_m + bs_s + bs_c]
-        stl_domain_out = domain_out[bs_m + bs_s + bs_c:]
 
         mnist_part_idx = part_idx[:bs_m]
         svhn_part_idx = part_idx[bs_m: bs_m + bs_s]
         cifar_part_idx = part_idx[bs_m + bs_s: bs_m + bs_s + bs_c]
-        stl_part_idx = part_idx[bs_m + bs_s + bs_c:]
 
         mnist_part_gumbel = part_gumbel[:bs_m]
         svhn_part_gumbel = part_gumbel[bs_m: bs_m + bs_s]
         cifar_part_gumbel = part_gumbel[bs_m + bs_s: bs_m + bs_s + bs_c]
-        stl_part_gumbel = part_gumbel[bs_m + bs_s + bs_c:]
 
         if i % 5 == 0:
             print(f"--- [Epoch {epoch + 1}, Batch {i}] Partition Stats ---")
             mnist_counts = torch.bincount(mnist_part_idx, minlength=args.num_partition)
             svhn_counts = torch.bincount(svhn_part_idx, minlength=args.num_partition)
             cifar_counts = torch.bincount(cifar_part_idx, minlength=args.num_partition)
-            stl_counts = torch.bincount(stl_part_idx, minlength=args.num_partition)
             print(
-                f"MNIST : {mnist_counts.cpu().numpy()} / SVHN  : {svhn_counts.cpu().numpy()} / CIFAR : {cifar_counts.cpu().numpy()} / STL : {stl_counts.cpu().numpy()}")
+                f"MNIST : {mnist_counts.cpu().numpy()} / SVHN  : {svhn_counts.cpu().numpy()} / CIFAR : {cifar_counts.cpu().numpy()}")
             print(
                 f"Switcher Weight Mean: {model.partition_switcher.weight.data.mean():.8f}, Bias Mean: {model.partition_switcher.bias.data.mean():.8f}")
 
@@ -158,15 +146,10 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
             label_val = cifar_labels[l_idx].item()
             if 0 <= label_val < args.num_classes:
                 cifar_label_partition_counts[label_val, cifar_part_idx[l_idx].item()] += 1
-        for l_idx in range(stl_labels.size(0)):
-            label_val = stl_labels[l_idx].item()
-            if 0 <= label_val < args.num_classes:
-                stl_label_partition_counts[label_val, stl_part_idx[l_idx].item()] += 1
 
         mnist_label_loss = criterion(mnist_out_part, mnist_labels)
         svhn_label_loss = criterion(svhn_out_part, svhn_labels)
         cifar_label_loss = criterion(cifar_out_part, cifar_labels)
-        stl_label_loss = criterion(stl_out_part, stl_labels)
 
         # TODO it is cheating. it must be each domain std
         # numbers_part_gumbel = torch.cat((mnist_part_gumbel, svhn_part_gumbel))
@@ -188,10 +171,9 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         loss_specialization_mnist = mnist_part_gumbel[:, mnist_part_idx].std()
         loss_specialization_svhn = svhn_part_gumbel[:, svhn_part_idx].std()
         loss_specialization_cifar = cifar_part_gumbel[:, cifar_part_idx].std()
-        loss_specialization_stl = stl_part_gumbel[:, stl_part_idx].std()
         
         # loss_specialization = loss_specialization_numbers + loss_specialization_objects
-        loss_specialization = loss_specialization_mnist + loss_specialization_svhn + loss_specialization_cifar + loss_specialization_stl
+        loss_specialization = loss_specialization_mnist + loss_specialization_svhn + loss_specialization_cifar 
         
         # check if it is nan because all batch are the same
         if torch.isnan(loss_specialization):
@@ -211,14 +193,13 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         
         if torch.isnan(loss_diversity):
             print('caution diversity')
-                
-        label_loss = (mnist_label_loss + svhn_label_loss) + (cifar_label_loss + stl_label_loss)
+
+        label_loss = (mnist_label_loss + svhn_label_loss) + cifar_label_loss
         mnist_domain_loss = domain_criterion(mnist_domain_out, mnist_dlabels)
         svhn_domain_loss = domain_criterion(svhn_domain_out, svhn_dlabels)
         cifar_domain_loss = domain_criterion(cifar_domain_out, cifar_dlabels)
-        stl_domain_loss = domain_criterion(stl_domain_out, stl_dlabels)
 
-        domain_loss = (mnist_domain_loss + svhn_domain_loss) + (cifar_domain_loss + stl_domain_loss)
+        domain_loss = (mnist_domain_loss + svhn_domain_loss) + cifar_domain_loss
         loss = label_loss + domain_loss + args.reg_alpha * loss_specialization + args.reg_beta * loss_diversity
         
         if not inference:
@@ -241,38 +222,32 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         mnist_partition_counts += torch.bincount(mnist_part_idx, minlength=args.num_partition).to(device)
         svhn_partition_counts += torch.bincount(svhn_part_idx, minlength=args.num_partition).to(device)
         cifar_partition_counts += torch.bincount(cifar_part_idx, minlength=args.num_partition).to(device)
-        stl_partition_counts += torch.bincount(stl_part_idx, minlength=args.num_partition).to(device)
 
-        total_label_loss += label_loss.item() * (bs_m + bs_s + bs_c + bs_stl)  # °¡Áß Æò±ÕÀ» À§ÇØ ¹èÄ¡ Å©±â °öÇÔ
+        total_label_loss += label_loss.item() * (bs_m + bs_s + bs_c)  # °¡Áß Æò±ÕÀ» À§ÇØ ¹èÄ¡ Å©±â °öÇÔ
         total_mnist_loss += mnist_label_loss.item() * bs_m
         total_svhn_loss += svhn_label_loss.item() * bs_s
         total_cifar_loss += cifar_label_loss.item() * bs_c
-        total_stl_loss += stl_label_loss.item() * bs_stl
 
-        total_domain_loss += domain_loss.item() * (bs_m + bs_s + bs_c + bs_stl)
+        total_domain_loss += domain_loss.item() * (bs_m + bs_s + bs_c)
         total_mnist_domain_loss += mnist_domain_loss.item() * bs_m
         total_svhn_domain_loss += svhn_domain_loss.item() * bs_s
         total_cifar_domain_loss += cifar_domain_loss.item() * bs_c
-        total_stl_domain_loss += stl_domain_loss.item() * bs_stl
 
-        total_specialization_loss += loss_specialization.item() * (bs_m + bs_s + bs_c + bs_stl)
-        total_diversity_loss += loss_diversity.item() * (bs_m + bs_s + bs_c + bs_stl)
-        total_loss += loss.item() * (bs_m + bs_s + bs_c + bs_stl)
+        total_specialization_loss += loss_specialization.item() * (bs_m + bs_s + bs_c)
+        total_diversity_loss += loss_diversity.item() * (bs_m + bs_s + bs_c)
+        total_loss += loss.item() * (bs_m + bs_s + bs_c)
 
         total_mnist_correct += (torch.argmax(mnist_out_part, dim=1) == mnist_labels).sum().item()
         total_svhn_correct += (torch.argmax(svhn_out_part, dim=1) == svhn_labels).sum().item()
         total_cifar_correct += ((torch.argmax(cifar_out_part, dim=1) == cifar_labels).sum().item())
-        total_stl_correct += ((torch.argmax(stl_out_part, dim=1) == stl_labels).sum().item())
 
         total_mnist_domain_correct += (torch.argmax(mnist_domain_out, dim=1) == mnist_dlabels).sum().item()
         total_svhn_domain_correct += (torch.argmax(svhn_domain_out, dim=1) == svhn_dlabels).sum().item()
         total_cifar_domain_correct += ((torch.argmax(cifar_domain_out, dim=1) == cifar_dlabels).sum().item())
-        total_stl_domain_correct += ((torch.argmax(stl_domain_out, dim=1) == stl_dlabels).sum().item())
 
         total_samples_m += bs_m
         total_samples_s += bs_s
         total_samples_c += bs_c
-        total_samples_stl += bs_stl
 
     
     if total_samples_m == 0: 
@@ -281,15 +256,13 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         total_samples_s = 1
     if total_samples_c == 0: 
         total_samples_c = 1
-    if total_samples_stl == 0: 
-        total_samples_stl = 1
 
     if not inference:
         prefix = 'Train'
     else:
         prefix = 'Test'
         
-    total_samples_all = total_samples_m + total_samples_s + total_samples_c + total_samples_stl
+    total_samples_all = total_samples_m + total_samples_s + total_samples_c
 
     mnist_train_partition_log = get_label_partition_log_data(
         mnist_label_partition_counts, 'MNIST', args.num_classes, args.num_partition, prefix=prefix
@@ -300,14 +273,11 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
     cifar_train_partition_log = get_label_partition_log_data(
         cifar_label_partition_counts, 'CIFAR', args.num_classes, args.num_partition, prefix=prefix
     )
-    stl_train_partition_log = get_label_partition_log_data(
-        stl_label_partition_counts, 'STL', args.num_classes, args.num_partition, prefix=prefix
-    )
+    
 
     mnist_partition_ratios = mnist_partition_counts / total_samples_m * 100
     svhn_partition_ratios = svhn_partition_counts / total_samples_s * 100
     cifar_partition_ratios = cifar_partition_counts / total_samples_c * 100
-    stl_partition_ratios = stl_partition_counts / total_samples_stl * 100
 
     mnist_partition_ratio_str = " | ".join(
         [f"Partition {p}: {mnist_partition_ratios[p]:.2f}%" for p in range(args.num_partition)])
@@ -315,18 +285,14 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         [f"Partition {p}: {svhn_partition_ratios[p]:.2f}%" for p in range(args.num_partition)])
     cifar_partition_ratio_str = " | ".join(
         [f"Partition {p}: {cifar_partition_ratios[p]:.2f}%" for p in range(args.num_partition)])
-    stl_partition_ratio_str = " | ".join(
-        [f"P {p}: {stl_partition_ratios[p]:.2f}%" for p in range(args.num_partition)])
-
+    
     mnist_domain_avg_loss = total_mnist_domain_loss / total_samples_m
     svhn_domain_avg_loss = total_svhn_domain_loss / total_samples_s
     cifar_domain_avg_loss = total_cifar_domain_loss / total_samples_c
-    stl_domain_avg_loss = total_stl_domain_loss / total_samples_stl
 
     mnist_avg_loss = total_mnist_loss / total_samples_m
     svhn_avg_loss = total_svhn_loss / total_samples_s
     cifar_avg_loss = total_cifar_loss / total_samples_c
-    stl_avg_loss = total_stl_loss / total_samples_stl
 
     domain_avg_loss = total_domain_loss / total_samples_all
     label_avg_loss = total_label_loss / total_samples_all
@@ -337,54 +303,47 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
     mnist_acc_epoch = total_mnist_correct / total_samples_m * 100
     svhn_acc_epoch = total_svhn_correct / total_samples_s * 100
     cifar_acc_epoch = total_cifar_correct / total_samples_c * 100
-    stl_acc_epoch = total_stl_correct / total_samples_stl * 100
 
     mnist_domain_acc_epoch = total_mnist_domain_correct / total_samples_m * 100
     svhn_domain_acc_epoch = total_svhn_domain_correct / total_samples_s * 100
     cifar_domain_acc_epoch = total_cifar_domain_correct / total_samples_c * 100
-    stl_domain_acc_epoch = total_stl_domain_correct / total_samples_stl * 100
 
     if not inference:
         print(f'Epoch [{epoch + 1}/{num_epochs}]')
     else:
         print(f'Epoch [{epoch + 1}/{num_epochs}] (Test)')
     print(
-        f'  [Ratios] MNIST: [{mnist_partition_ratio_str}] | SVHN: [{svhn_partition_ratio_str}] | CIFAR: [{cifar_partition_ratio_str}] | STL: [{stl_partition_ratio_str}]')
+        f'  [Ratios] MNIST: [{mnist_partition_ratio_str}] | SVHN: [{svhn_partition_ratio_str}] | CIFAR: [{cifar_partition_ratio_str}]')
     print(
-        f'  [Acc]    MNIST: {mnist_acc_epoch:<6.2f}% | SVHN: {svhn_acc_epoch:<6.2f}% | CIFAR: {cifar_acc_epoch:<6.2f}% | STL: {stl_acc_epoch:<6.2f}%')
+        f'  [Acc]    MNIST: {mnist_acc_epoch:<6.2f}% | SVHN: {svhn_acc_epoch:<6.2f}% | CIFAR: {cifar_acc_epoch:<6.2f}%')
     print(
-        f'  [DomAcc] MNIST: {mnist_domain_acc_epoch:<6.2f}% | SVHN: {svhn_domain_acc_epoch:<6.2f}% | CIFAR: {cifar_domain_acc_epoch:<6.2f}% | STL: {stl_domain_acc_epoch:<6.2f}%')
+        f'  [DomAcc] MNIST: {mnist_domain_acc_epoch:<6.2f}% | SVHN: {svhn_domain_acc_epoch:<6.2f}% | CIFAR: {cifar_domain_acc_epoch:<6.2f}%')
     print(f'  [Reg]    Spec:  {specialization_loss:<8.4f} | Div:    {diversity_loss:<8.4f} | Tau: {tau:<5.3f}')
     print(
         f'  [Loss]   Label: {label_avg_loss:<8.4f} | Domain: {domain_avg_loss:<8.4f} | Total: {total_avg_loss:<8.4f}')
     print(
-        f'  [Label]  MNIST: {mnist_avg_loss:<6.4f} | SVHN: {svhn_avg_loss:<6.4f} | CIFAR: {cifar_avg_loss:<6.4f} | STL: {stl_avg_loss:<6.4f}')
+        f'  [Label]  MNIST: {mnist_avg_loss:<6.4f} | SVHN: {svhn_avg_loss:<6.4f} | CIFAR: {cifar_avg_loss:<6.4f}')
     print(
-        f'  [Domain] MNIST: {mnist_domain_avg_loss:<6.4f} | SVHN: {svhn_domain_avg_loss:<6.4f} | CIFAR: {cifar_domain_avg_loss:<6.4f} | STL: {stl_domain_avg_loss:<6.4f}')
+        f'  [Domain] MNIST: {mnist_domain_avg_loss:<6.4f} | SVHN: {svhn_domain_avg_loss:<6.4f} | CIFAR: {cifar_domain_avg_loss:<6.4f}')
 
 
     wandb.log({
         **{f"{prefix}/Partition {p} MNIST Ratio": mnist_partition_ratios[p].item() for p in range(args.num_partition)},
         **{f"{prefix}/Partition {p} SVHN Ratio": svhn_partition_ratios[p].item() for p in range(args.num_partition)},
         **{f"{prefix}/Partition {p} CIFAR Ratio": cifar_partition_ratios[p].item() for p in range(args.num_partition)},
-        **{f"{prefix}/Partition {p} STL Ratio": stl_partition_ratios[p].item() for p in range(args.num_partition)},
         f'{prefix}/Label MNIST Accuracy': mnist_acc_epoch,
         f'{prefix}/Label SVHN Accuracy': svhn_acc_epoch,
         f'{prefix}/Label CIFAR Accuracy': cifar_acc_epoch,
-        f'{prefix}/Label STL Accuracy': stl_acc_epoch,
         f'{prefix}/Domain MNIST Accuracy': mnist_domain_acc_epoch,
         f'{prefix}/Domain SVHN Accuracy': svhn_domain_acc_epoch,
         f'{prefix}/Domain CIFAR Accuracy': cifar_domain_acc_epoch,
-        f'{prefix}/Domain STL Accuracy': stl_domain_acc_epoch,
         f'{prefix}Loss/Label MNIST Loss': mnist_avg_loss,
         f'{prefix}Loss/Label SVHN Loss': svhn_avg_loss,
         f'{prefix}Loss/Label CIFAR Loss': cifar_avg_loss,
-        f'{prefix}Loss/Label STL Loss': stl_avg_loss,
         f'{prefix}Loss/Label Loss': label_avg_loss,
         f'{prefix}Loss/Domain MNIST Loss': mnist_domain_avg_loss,
         f'{prefix}Loss/Domain SVHN Loss': svhn_domain_avg_loss,
         f'{prefix}Loss/Domain CIFAR Loss': cifar_domain_avg_loss,
-        f'{prefix}Loss/Domain STL Loss': stl_domain_avg_loss,
         f'{prefix}Loss/Domain Loss': domain_avg_loss,
         f'{prefix}Loss/Specialization Loss': specialization_loss,
         f'{prefix}Loss/Diversity Loss': diversity_loss,
@@ -395,7 +354,6 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         **mnist_train_partition_log,
         **svhn_train_partition_log,
         **cifar_train_partition_log,
-        **stl_train_partition_log,
     }, step=epoch + 1)
 
 
@@ -406,7 +364,7 @@ def main():
     wandb_run = wandb.init(entity="hails",
                            project="TagNet - NumObj dk",
                            config=args.__dict__,
-                           name="[TagnetMLP]NumObj_UniqueDomain_LpFixed_probGB_lr:" + str(args.lr)
+                           name="[TagnetMLP]MSC_UniqueDomain_LpFixed_probGB_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
                                 + "_PLayer:" + str(args.part_layer)
                                 + "_spe:" + str(args.reg_alpha)
@@ -418,8 +376,7 @@ def main():
 
     mnist_loader, mnist_loader_test = data_loader('MNIST', args.batch_size)
     svhn_loader, svhn_loader_test = data_loader('SVHN', args.batch_size)
-    cifar_loader, cifar_loader_test = data_loader('CIFAR10', args.batch_size)
-    stl_loader, stl_loader_test = data_loader('STL10', args.batch_size)
+    cifar_loader, cifar_loader_test = data_loader('CIFAR10', args.batch_size*2)
 
     print("Data load complete, start training")
 
@@ -452,8 +409,8 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(num_epochs):
-        train_loader_zip = zip(mnist_loader, svhn_loader, cifar_loader, stl_loader)
-        test_loader_zip = zip(mnist_loader_test, svhn_loader_test, cifar_loader_test, stl_loader_test)
+        train_loader_zip = zip(mnist_loader, svhn_loader, cifar_loader)
+        test_loader_zip = zip(mnist_loader_test, svhn_loader_test, cifar_loader_test)
         phi = math.exp(-epoch / num_epochs * 5)  # decay from 1 to 0
         tau = tau_scheduler.get_tau()
 
