@@ -168,10 +168,10 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         # loss_specialization_stl =  -torch.sum(stl_part_gumbel[:, stl_part_idx] * torch.log(stl_part_gumbel[:, stl_part_idx] + 1e-8))
         
         # this is fixed one, the lower the better. 
-        loss_specialization_mnist = mnist_part_gumbel[:, mnist_part_idx].std()
-        loss_specialization_svhn = svhn_part_gumbel[:, svhn_part_idx].std()
-        loss_specialization_cifar = cifar_part_gumbel[:, cifar_part_idx].std()
-        
+        loss_specialization_mnist = -torch.sum(mnist_part_gumbel*torch.log(mnist_part_gumbel), axis=1).mean()
+        loss_specialization_svhn = -torch.sum(svhn_part_gumbel*torch.log(svhn_part_gumbel), axis=1).mean()
+        loss_specialization_cifar = -torch.sum(cifar_part_gumbel*torch.log(cifar_part_gumbel), axis=1).mean()
+
         # loss_specialization = loss_specialization_numbers + loss_specialization_objects
         loss_specialization = loss_specialization_mnist + loss_specialization_svhn + loss_specialization_cifar 
         
@@ -189,7 +189,7 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         # for part in range(args.num_partition):
         #     loss_diversity += torch.sum(part_gumbel[:, part] * torch.log(part_gumbel[:, part] + 1e-8))
         
-        loss_diversity = -part_idx.float().std()
+        loss_diversity = torch.sum(part_gumbel.mean(0) * torch.log(part_gumbel.mean(0) + 1e-8))
         
         if torch.isnan(loss_diversity):
             print('caution diversity')
