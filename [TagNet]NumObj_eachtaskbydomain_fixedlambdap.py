@@ -10,7 +10,7 @@ import math
 import wandb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', type=int, default=500)
+parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--batch_size', type=int, default=200)
 parser.add_argument('--num_partition', type=int, default=2)
 parser.add_argument('--num_classes', type=int, default=10)
