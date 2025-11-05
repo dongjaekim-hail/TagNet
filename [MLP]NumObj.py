@@ -28,7 +28,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=500)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=200)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--hidden_size', type=int, default=128)

@@ -9,6 +9,40 @@ from dataloader.data_loader import data_loader
 import math
 import wandb
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--epoch', type=int, default=500)
+parser.add_argument('--batch_size', type=int, default=200)
+parser.add_argument('--num_partition', type=int, default=2)
+parser.add_argument('--num_classes', type=int, default=10)
+parser.add_argument('--num_domains', type=int, default=4)
+parser.add_argument('--pre_classifier_out', type=int, default=128)
+parser.add_argument('--part_layer', type=int, default=128)
+
+# tau scheduler
+parser.add_argument('--init_tau', type=float, default=2.0)
+parser.add_argument('--min_tau', type=float, default=0.1)
+parser.add_argument('--tau_decay', type=float, default=0.97)
+
+# Optimizer
+parser.add_argument('--lr', type=float, default=1e-2)
+parser.add_argument('--momentum', type=float, default=0.90)
+parser.add_argument('--opt_decay', type=float, default=1e-6)
+
+# parameter lr amplifier
+parser.add_argument('--prefc_lr', type=float, default=1.0)
+parser.add_argument('--fc_lr', type=float, default=1.0)
+parser.add_argument('--disc_lr', type=float, default=0.2)
+parser.add_argument('--switcher_lr', type=float, default=0.2)
+
+# regularization
+parser.add_argument('--reg_alpha', type=float, default=1)
+parser.add_argument('--reg_beta', type=float, default=1)
+parser.add_argument('--lambda_p', type=float, default=5e-2)
+
+args = parser.parse_args()
+
+num_epochs = args.epoch
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_label_partition_log_data(label_partition_counts, domain_name, num_classes, num_partition, prefix):
@@ -29,7 +63,7 @@ def get_label_partition_log_data(label_partition_counts, domain_name, num_classe
             log_data[log_key] = percentage
     return log_data
 
-def train_step(model,args, data_loader_zip, phi, lambda_p, tau, inference = False):
+def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_loader_zip, phi, lambda_p, tau, inference = False):
 
     if not inference:
         model.train()
@@ -368,37 +402,6 @@ def train_step(model,args, data_loader_zip, phi, lambda_p, tau, inference = Fals
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=500)
-    parser.add_argument('--batch_size', type=int, default=200)
-    parser.add_argument('--num_partition', type=int, default=2)
-    parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--num_domains', type=int, default=4)
-    parser.add_argument('--pre_classifier_out', type=int, default=128)
-    parser.add_argument('--part_layer', type=int, default=128)
-
-    # tau scheduler
-    parser.add_argument('--init_tau', type=float, default=2.0)
-    parser.add_argument('--min_tau', type=float, default=0.1)
-    parser.add_argument('--tau_decay', type=float, default=0.97)
-
-    # Optimizer
-    parser.add_argument('--lr', type=float, default=1e-2)
-    parser.add_argument('--momentum', type=float, default=0.90)
-    parser.add_argument('--opt_decay', type=float, default=1e-6)
-
-    # parameter lr amplifier
-    parser.add_argument('--prefc_lr', type=float, default=1.0)
-    parser.add_argument('--fc_lr', type=float, default=1.0)
-    parser.add_argument('--disc_lr', type=float, default=0.2)
-    parser.add_argument('--switcher_lr', type=float, default=0.2)
-
-    # regularization
-    parser.add_argument('--reg_alpha', type=float, default=1)
-    parser.add_argument('--reg_beta', type=float, default=1)
-    parser.add_argument('--lambda_p', type=float, default=5e-2)
-
-    args = parser.parse_args()
     init_lambda = args.lambda_p
     num_epochs = args.epoch
 
@@ -450,15 +453,15 @@ def main():
     domain_criterion = nn.CrossEntropyLoss()
     criterion = nn.CrossEntropyLoss()
 
-    train_loader_zip = zip(mnist_loader, svhn_loader, cifar_loader, stl_loader)
-    test_loader_zip = zip(mnist_loader_test, svhn_loader_test, cifar_loader_test, stl_loader_test)
     for epoch in range(num_epochs):
+        train_loader_zip = zip(mnist_loader, svhn_loader, cifar_loader, stl_loader)
+        test_loader_zip = zip(mnist_loader_test, svhn_loader_test, cifar_loader_test, stl_loader_test)
         phi = (1 + math.sqrt(5)) / 2
         lambda_p = init_lambda / phi ** (epoch / 50)
         tau = tau_scheduler.get_tau()
-        
-        train_step(model,args, train_loader_zip, phi, lambda_p, tau, inference = False)
-        train_step(model,args, test_loader_zip, phi, lambda_p, tau, inference = True)
+
+        train_step(epoch, model, args, optimizer, criterion, domain_criterion, train_loader_zip, phi, lambda_p, tau, inference = False)
+        train_step(epoch, model, args, optimizer, criterion, domain_criterion, test_loader_zip, phi, lambda_p, tau, inference = True)
         tau_scheduler.step()
 
     final_save_path = os.path.join(save_dir, f"final_model_epoch_{num_epochs}.pt")

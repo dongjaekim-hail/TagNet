@@ -29,7 +29,6 @@ def get_label_partition_log_data(label_partition_counts, domain_name, num_classe
             log_data[log_key] = percentage
     return log_data
 
-def train_step()
 
 def main():
     parser = argparse.ArgumentParser()
@@ -38,8 +37,8 @@ def main():
     parser.add_argument('--num_partition', type=int, default=2)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--num_domains', type=int, default=4)
-    parser.add_argument('--pre_classifier_out', type=int, default=128)
-    parser.add_argument('--part_layer', type=int, default=128)
+    parser.add_argument('--pre_classifier_out', type=int, default=1024)
+    parser.add_argument('--part_layer', type=int, default=1024)
 
     # tau scheduler
     parser.add_argument('--init_tau', type=float, default=2.0)
@@ -58,8 +57,8 @@ def main():
     parser.add_argument('--switcher_lr', type=float, default=0.2)
 
     # regularization
-    parser.add_argument('--reg_alpha', type=float, default=1)
-    parser.add_argument('--reg_beta', type=float, default=1)
+    parser.add_argument('--reg_alpha', type=float, default=0.2)
+    parser.add_argument('--reg_beta', type=float, default=1.0)
     parser.add_argument('--lambda_p', type=float, default=5e-2)
 
     args = parser.parse_args()
@@ -97,8 +96,8 @@ def main():
     save_dir = f"./checkpoints/{wandb_run.name}"
     os.makedirs(save_dir, exist_ok=True)
     best_avg_acc = 0.0
-    save_interval = 100 # TODO changed
-    min_save_epoch = 10 # TODO changed
+    save_interval = 50
+    min_save_epoch = 150
 
     optimizer = optim.Adam(TagNet_weights(
         model,
@@ -114,8 +113,6 @@ def main():
     domain_criterion = nn.CrossEntropyLoss()
     criterion = nn.CrossEntropyLoss()
 
-    train_loader_zip = zip(mnist_loader, svhn_loader, cifar_loader, stl_loader)
-    
     for epoch in range(num_epochs):
         model.train()
         phi = (1 + math.sqrt(5)) / 2
@@ -141,6 +138,8 @@ def main():
         cifar_label_partition_counts = torch.zeros(args.num_classes, args.num_partition, device=device)
         stl_label_partition_counts = torch.zeros(args.num_classes, args.num_partition, device=device)
 
+        train_loader_zip = zip(mnist_loader, svhn_loader, cifar_loader, stl_loader)
+
         for i, (mnist_data, svhn_data, cifar_data, stl_data) in enumerate(train_loader_zip):
             mnist_images, mnist_labels = mnist_data
             mnist_images, mnist_labels = mnist_images.to(device), mnist_labels.to(device)
@@ -163,7 +162,6 @@ def main():
                 0)
             all_images = torch.cat((mnist_images, svhn_images, cifar_images, stl_images), dim=0)
 
-            # TODO here, I think part_gumbel is meaningless. it must be the probability before gumbel sampling
             out_part, domain_out, part_idx, part_gumbel = model(all_images, alpha=lambda_p, tau=tau, inference=False)
 
             mnist_out_part = out_part[:bs_m]
@@ -219,50 +217,20 @@ def main():
             cifar_label_loss = criterion(cifar_out_part, cifar_labels)
             stl_label_loss = criterion(stl_out_part, stl_labels)
 
-            # TODO it is cheating. it must be each domain std
-            # numbers_part_gumbel = torch.cat((mnist_part_gumbel, svhn_part_gumbel))
-            # objects_part_gumbel = torch.cat((cifar_part_gumbel, stl_part_gumbel))
-            # avg_prob_numbers = torch.mean(numbers_part_gumbel, dim=0)
-            # avg_prob_objects = torch.mean(objects_part_gumbel, dim=0)
+            numbers_part_gumbel = torch.cat((mnist_part_gumbel, svhn_part_gumbel))
+            objects_part_gumbel = torch.cat((cifar_part_gumbel, stl_part_gumbel))
 
-            # TODO if you do this like it before, then the resulting avg_prob_numbers is shape of 2... which is the number of partitions.
-            # this is genuinely wrong. it must be the probability of the partition idx. 
-            # loss_specialization_numbers = -torch.sum(avg_prob_numbers * torch.log(avg_prob_numbers + 1e-8))
-            # loss_specialization_objects = -torch.sum(avg_prob_objects * torch.log(avg_prob_objects + 1e-8))
-            # TODO v2 I dont remember why we decided to use entropy? as there is no meaning of using it since we want each task's data to be specifically target one partition.
-            # loss_specialization_mnist =  -torch.sum(mnist_part_gumbel[:, mnist_part_idx] * torch.log(mnist_part_gumbel[:, mnist_part_idx] + 1e-8))  
-            # loss_specialization_svhn =  -torch.sum(svhn_part_gumbel[:, svhn_part_idx] * torch.log(svhn_part_gumbel[:, svhn_part_idx] + 1e-8))   
-            # loss_specialization_cifar =  -torch.sum(cifar_part_gumbel[:, cifar_part_idx] * torch.log(cifar_part_gumbel[:, cifar_part_idx] + 1e-8))
-            # loss_specialization_stl =  -torch.sum(stl_part_gumbel[:, stl_part_idx] * torch.log(stl_part_gumbel[:, stl_part_idx] + 1e-8))
-            
-            # this is fixed one, the lower the better. 
-            loss_specialization_mnist = mnist_part_gumbel[:, mnist_part_idx].std()
-            loss_specialization_svhn = svhn_part_gumbel[:, svhn_part_idx].std()
-            loss_specialization_cifar = cifar_part_gumbel[:, cifar_part_idx].std()
-            loss_specialization_stl = stl_part_gumbel[:, stl_part_idx].std()
-            
-            # loss_specialization = loss_specialization_numbers + loss_specialization_objects
-            loss_specialization = loss_specialization_mnist + loss_specialization_svhn + loss_specialization_cifar + loss_specialization_stl
-            
-            # check if it is nan because all batch are the same
-            if torch.isnan(loss_specialization):
-                print('caution')
-            
-            # TODO here, it is wrong again. you applied it for partitions not data.
-            # all_probs = torch.cat((numbers_part_gumbel, objects_part_gumbel), dim=0)
-            # avg_prob_global = torch.mean(all_probs, dim=0)
-            # loss_diversity = torch.sum(avg_prob_global * torch.log(avg_prob_global + 1e-8))
-            
-            # TODO v2 I dont remember why we decided to use entropy? as there is no meaning of using it since we want each task's data to be specifically target one partition.
-            # loss_diversity = 0
-            # for part in range(args.num_partition):
-            #     loss_diversity += torch.sum(part_gumbel[:, part] * torch.log(part_gumbel[:, part] + 1e-8))
-            
-            loss_diversity = -part_idx.float().std()
-            
-            if torch.isnan(loss_diversity):
-                print('caution diversity')
-                    
+            avg_prob_numbers = torch.mean(numbers_part_gumbel, dim=0)
+            avg_prob_objects = torch.mean(objects_part_gumbel, dim=0)
+
+            loss_specialization_numbers = -torch.sum(avg_prob_numbers * torch.log(avg_prob_numbers + 1e-8))
+            loss_specialization_objects = -torch.sum(avg_prob_objects * torch.log(avg_prob_objects + 1e-8))
+            loss_specialization = loss_specialization_numbers + loss_specialization_objects
+            all_probs = torch.cat((numbers_part_gumbel, objects_part_gumbel), dim=0)
+            avg_prob_global = torch.mean(all_probs, dim=0)
+
+            loss_diversity = torch.sum(avg_prob_global * torch.log(avg_prob_global + 1e-8))
+
             label_loss = ((mnist_label_loss + svhn_label_loss) / 2 + (cifar_label_loss + stl_label_loss) / 2
                           + args.reg_alpha * loss_specialization + args.reg_beta * loss_diversity)
             mnist_domain_loss = domain_criterion(mnist_domain_out, mnist_dlabels)
@@ -492,11 +460,11 @@ def main():
             test_mnist_avg_loss, test_mnist_dom_avg_loss, test_mnist_acc_epoch, test_mnist_domain_acc_epoch, test_mnist_ratios, test_mnist_label_counts, mnist_gumbel = evaluate_dataset(
                 mnist_loader_test, 0)
             test_svhn_avg_loss, test_svhn_dom_avg_loss, test_svhn_acc_epoch, test_svhn_domain_acc_epoch, test_svhn_ratios, test_svhn_label_counts, svhn_gumbel = evaluate_dataset(
-                svhn_loader_test, 1)
+                svhn_loader_test, 0)
             test_cifar_avg_loss, test_cifar_dom_avg_loss, test_cifar_acc_epoch, test_cifar_domain_acc_epoch, test_cifar_ratios, test_cifar_label_counts, cifar_gumbel = evaluate_dataset(
-                cifar_loader_test, 2)
+                cifar_loader_test, 1)
             test_stl_avg_loss, test_stl_dom_avg_loss, test_stl_acc_epoch, test_stl_domain_acc_epoch, test_stl_ratios, test_stl_label_counts, stl_gumbel = evaluate_dataset(
-                stl_loader_test, 3)
+                stl_loader_test, 1)
 
             current_avg_acc = (
                                           test_mnist_acc_epoch + test_svhn_acc_epoch + test_cifar_acc_epoch + test_stl_acc_epoch) / 4.0
