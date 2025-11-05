@@ -300,14 +300,14 @@ class TagNet32(nn.Module):
 class TagNet32_woLayernorm(nn.Module):
     def __init__(self, num_classes=10, pre_classifier_out=1024, n_partition=2, part_layer=128, num_domains=2,
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
-        super(TagNet32, self).__init__()
+        super(TagNet32_woLayernorm, self).__init__()
         self.device = device
         self.n_partition = n_partition
         self.disc_hidden = 3 * num_classes * num_domains * n_partition
 
         self.pre_classifier = nn.Sequential(
             nn.Linear(3 * 32 * 32, pre_classifier_out),
-            # nn.LayerNorm(pre_classifier_out),
+            nn.BatchNorm1d(pre_classifier_out),
             nn.ReLU(),
         )
 
@@ -405,7 +405,8 @@ class TagNet32_woLayernorm(nn.Module):
 
         partition_switcher_output = self.partition_switcher(domain_penul)
 
-        if inference:
+        # TODO it was the opposite. during inference, gumbel sampling must be used
+        if not inference:
             partition_gumbel_or_probs = torch.softmax(partition_switcher_output, dim=1)
             partition_idx = torch.argmax(partition_gumbel_or_probs, dim=1)
         else:
@@ -435,7 +436,10 @@ class TagNet32_woLayernorm(nn.Module):
 
 
 def TagNet_weights(model, lr, pre_weight=1.0, fc_weight=1.0, disc_weight=1.0, switcher_weight=1.0):
-    return [
+    
+    # check if the model has features
+    if hasattr(model, 'features'):
+        return [
         {'params': model.features.parameters(), 'lr': lr},
         {'params': model.pre_classifier.parameters(), 'lr': lr * pre_weight},
         {'params': model.discriminator.parameters(), 'lr': lr * disc_weight},
@@ -443,3 +447,13 @@ def TagNet_weights(model, lr, pre_weight=1.0, fc_weight=1.0, disc_weight=1.0, sw
         {'params': model.partitioned_classifier.parameters(), 'lr': lr * fc_weight},
         {'params': model.partition_switcher.parameters(), 'lr': lr * switcher_weight},
     ]
+
+    else:
+        return [
+            # {'params': model.features.parameters(), 'lr': lr},
+            {'params': model.pre_classifier.parameters(), 'lr': lr * pre_weight},
+            {'params': model.discriminator.parameters(), 'lr': lr * disc_weight},
+            {'params': model.discriminator_fc.parameters(), 'lr': lr * disc_weight},
+            {'params': model.partitioned_classifier.parameters(), 'lr': lr * fc_weight},
+            {'params': model.partition_switcher.parameters(), 'lr': lr * switcher_weight},
+        ]
