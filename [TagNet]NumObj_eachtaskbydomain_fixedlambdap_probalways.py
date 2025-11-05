@@ -19,8 +19,8 @@ parser.add_argument('--pre_classifier_out', type=int, default=128)
 parser.add_argument('--part_layer', type=int, default=128)
 
 # tau scheduler
-parser.add_argument('--init_tau', type=float, default=2.0)
-parser.add_argument('--min_tau', type=float, default=0.1)
+parser.add_argument('--init_tau', type=float, default=1)
+parser.add_argument('--min_tau', type=float, default=1)
 parser.add_argument('--tau_decay', type=float, default=0.97)
 
 # Optimizer
@@ -35,8 +35,8 @@ parser.add_argument('--disc_lr', type=float, default=1.0)
 parser.add_argument('--switcher_lr', type=float, default=0.05)
 
 # regularization
-parser.add_argument('--reg_alpha', type=float, default=0)
-parser.add_argument('--reg_beta', type=float, default=0)
+parser.add_argument('--reg_alpha', type=float, default=0.001)
+parser.add_argument('--reg_beta', type=float, default=0.001)
 parser.add_argument('--lambda_p', type=float, default=0.1)
 
 args = parser.parse_args()
@@ -113,7 +113,7 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         all_images = torch.cat((mnist_images, svhn_images, cifar_images, stl_images), dim=0)
 
         # TODO here, I think part_gumbel is meaningless. it must be the probability before gumbel sampling
-        out_part, domain_out, part_idx, part_gumbel = model(all_images, alpha=lambda_p, tau=tau, inference=inference)
+        out_part, domain_out, part_idx, part_gumbel = model(all_images, alpha=lambda_p, tau=tau, inference=False)
 
         mnist_out_part = out_part[:bs_m]
         svhn_out_part = out_part[bs_m: bs_m + bs_s]
@@ -406,7 +406,7 @@ def main():
     wandb_run = wandb.init(entity="hails",
                            project="TagNet - NumObj dk",
                            config=args.__dict__,
-                           name="[TagnetMLP]NumObj_UniqueDomain_LpFixed_lr:" + str(args.lr)
+                           name="[TagnetMLP]NumObj_UniqueDomain_LpFixed_probGB_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
                                 + "_PLayer:" + str(args.part_layer)
                                 + "_spe:" + str(args.reg_alpha)
