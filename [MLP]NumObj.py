@@ -31,7 +31,7 @@ def main():
     parser.add_argument('--epoch', type=int, default=500)
     parser.add_argument('--batch_size', type=int, default=200)
     parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--hidden_size', type=int, default=1024)
+    parser.add_argument('--hidden_size', type=int, default=128)
 
     # Optimizer
     parser.add_argument('--lr', type=float, default=1e-2)
@@ -140,13 +140,23 @@ def main():
         if total_samples_stl == 0:
             total_samples_stl = 1
 
-        mnist_avg_loss = total_mnist_loss / len(mnist_loader)
-        svhn_avg_loss = total_svhn_loss / len(svhn_loader)
-        cifar_avg_loss = total_cifar_loss / len(cifar_loader)
-        stl_avg_loss = total_stl_loss / len(stl_loader)
+        total_samples_all = total_samples_m + total_samples_s + total_samples_c + total_samples_stl
 
-        label_avg_loss = total_label_loss / (len(mnist_loader) * 4)
-        total_avg_loss = total_loss / (len(mnist_loader) * 4)
+        # TODO just so wrong. Not every data go all the way to the end of dataloader.
+        # mnist_avg_loss = total_mnist_loss / len(mnist_loader)
+        # svhn_avg_loss = total_svhn_loss / len(svhn_loader)
+        # cifar_avg_loss = total_cifar_loss / len(cifar_loader)
+        # stl_avg_loss = total_stl_loss / len(stl_loader)
+        
+        mnist_avg_loss = total_mnist_loss / total_samples_m
+        svhn_avg_loss = total_svhn_loss / total_samples_s
+        cifar_avg_loss = total_cifar_loss / total_samples_c
+        stl_avg_loss = total_stl_loss / total_samples_stl
+
+        # label_avg_loss = total_label_loss / (len(mnist_loader) * 4)
+        # total_avg_loss = total_loss / (len(mnist_loader) * 4)
+        label_avg_loss = total_label_loss / total_samples_all
+        total_avg_loss = total_loss / total_samples_all
 
         mnist_acc_epoch = total_mnist_correct / total_samples_m * 100
         svhn_acc_epoch = total_svhn_correct / total_samples_s * 100
