@@ -212,16 +212,14 @@ def train_step(epoch, model, args, optimizer, criterion, domain_criterion, data_
         if torch.isnan(loss_diversity):
             print('caution diversity')
                 
-        label_loss = ((mnist_label_loss + svhn_label_loss) / 2 + (cifar_label_loss + stl_label_loss) / 2
-                        + args.reg_alpha * loss_specialization + args.reg_beta * loss_diversity)
+        label_loss = (mnist_label_loss + svhn_label_loss) + (cifar_label_loss + stl_label_loss)
         mnist_domain_loss = domain_criterion(mnist_domain_out, mnist_dlabels)
         svhn_domain_loss = domain_criterion(svhn_domain_out, svhn_dlabels)
         cifar_domain_loss = domain_criterion(cifar_domain_out, cifar_dlabels)
         stl_domain_loss = domain_criterion(stl_domain_out, stl_dlabels)
 
-        domain_loss = (mnist_domain_loss + svhn_domain_loss) / 2 + (cifar_domain_loss + stl_domain_loss) / 2
-
-        loss = label_loss + domain_loss
+        domain_loss = (mnist_domain_loss + svhn_domain_loss) + (cifar_domain_loss + stl_domain_loss)
+        loss = label_loss + domain_loss + args.reg_alpha * loss_specialization + args.reg_beta * loss_diversity
         
         if not inference:
             loss.backward()
@@ -463,7 +461,6 @@ def main():
         train_step(epoch, model, args, optimizer, criterion, domain_criterion, train_loader_zip, phi, lambda_p, tau, inference = False)
         train_step(epoch, model, args, optimizer, criterion, domain_criterion, test_loader_zip, phi, lambda_p, tau, inference = True)
         tau_scheduler.step()
-
     final_save_path = os.path.join(save_dir, f"final_model_epoch_{num_epochs}.pt")
     torch.save(model.state_dict(), final_save_path)
     print(f"--- Final model saved to {final_save_path} ---")

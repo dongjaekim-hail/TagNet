@@ -108,7 +108,7 @@ def main():
             cifar_label_loss = criterion(cifar_out_part, cifar_labels)
             stl_label_loss = criterion(stl_out_part, stl_labels)
 
-            label_loss = (mnist_label_loss + svhn_label_loss) / 2 + (cifar_label_loss + stl_label_loss) / 2
+            label_loss = (mnist_label_loss + svhn_label_loss) + (cifar_label_loss + stl_label_loss)
             loss = label_loss
 
             loss.backward()
