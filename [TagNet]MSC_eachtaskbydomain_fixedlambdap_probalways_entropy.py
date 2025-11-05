@@ -364,7 +364,7 @@ def main():
     wandb_run = wandb.init(entity="hails",
                            project="TagNet - NumObj dk",
                            config=args.__dict__,
-                           name="[TagnetMLP]MSC_UniqueDomain_LpFixed_probGB_lr:" + str(args.lr)
+                           name="[TagnetMLP]MSC_UniqueDomain_LpFixed_probGB_Entropy_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
                                 + "_PLayer:" + str(args.part_layer)
                                 + "_spe:" + str(args.reg_alpha)
