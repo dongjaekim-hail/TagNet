@@ -42,7 +42,7 @@ def main():
     num_epochs = args.epoch
 
     wandb_run = wandb.init(entity="hails",
-                           project="TagNet MSC sweep 16",
+                           project="TagNet MSC sweep lambdap schedule 16",
                            config=args.__dict__,
                            name="[MLP]MSC_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
