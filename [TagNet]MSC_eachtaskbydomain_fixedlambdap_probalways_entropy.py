@@ -10,7 +10,7 @@ import math
 import wandb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', type=int, default=200)
+parser.add_argument('--epoch', type=int, default=300)
 parser.add_argument('--batch_size', type=int, default=200)
 parser.add_argument('--num_partition', type=int, default=2)
 parser.add_argument('--num_classes', type=int, default=10)
@@ -31,12 +31,12 @@ parser.add_argument('--opt_decay', type=float, default=1e-6)
 # parameter lr amplifier
 parser.add_argument('--prefc_lr', type=float, default=1.0)
 parser.add_argument('--fc_lr', type=float, default=1.0)
-parser.add_argument('--disc_lr', type=float, default=1.0)
-parser.add_argument('--switcher_lr', type=float, default=0.05)
+parser.add_argument('--disc_lr', type=float, default=0.6)
+parser.add_argument('--switcher_lr', type=float, default=0.025)
 
 # regularization
-parser.add_argument('--reg_alpha', type=float, default=0.01)
-parser.add_argument('--reg_beta', type=float, default=0.01)
+parser.add_argument('--reg_alpha', type=float, default=0.1)
+parser.add_argument('--reg_beta', type=float, default=0.0001)
 parser.add_argument('--lambda_p', type=float, default=0.1)
 
 args = parser.parse_args()

@@ -1,3 +1,5 @@
+# sweep 
+
 import argparse
 import os
 import torch
@@ -15,9 +17,9 @@ parser.add_argument('--batch_size', type=int, default=200)
 parser.add_argument('--num_partition', type=int, default=2)
 parser.add_argument('--num_classes', type=int, default=10)
 parser.add_argument('--num_domains', type=int, default=4)
-parser.add_argument('--hidden_size', type=int, default=128)
-parser.add_argument('--pre_classifier_out', type=int, default=128)
-parser.add_argument('--part_layer', type=int, default=128)
+parser.add_argument('--hidden_size', type=int, default=16)
+parser.add_argument('--pre_classifier_out', type=int, default=16)
+parser.add_argument('--part_layer', type=int, default=16)
 
 # tau scheduler
 parser.add_argument('--init_tau', type=float, default=1)
