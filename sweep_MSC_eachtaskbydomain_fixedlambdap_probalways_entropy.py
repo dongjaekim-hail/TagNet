@@ -10,13 +10,14 @@ import math
 import wandb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epoch', type=int, default=200)
+parser.add_argument('--epoch', type=int, default=150)
 parser.add_argument('--batch_size', type=int, default=200)
 parser.add_argument('--num_partition', type=int, default=2)
 parser.add_argument('--num_classes', type=int, default=10)
 parser.add_argument('--num_domains', type=int, default=4)
-parser.add_argument('--pre_classifier_out', type=int, default=64)
-parser.add_argument('--part_layer', type=int, default=64)
+parser.add_argument('--hidden_size', type=int, default=128)
+parser.add_argument('--pre_classifier_out', type=int, default=128)
+parser.add_argument('--part_layer', type=int, default=128)
 
 # tau scheduler
 parser.add_argument('--init_tau', type=float, default=1)
@@ -40,6 +41,8 @@ parser.add_argument('--reg_beta', type=float, default=0.01)
 parser.add_argument('--lambda_p', type=float, default=0.1)
 
 args = parser.parse_args()
+args.pre_classifier_out = args.hidden_size
+args.part_layer = args.hidden_size
 
 num_epochs = args.epoch
 
@@ -364,8 +367,7 @@ def main():
     init_lambda = args.lambda_p
     num_epochs = args.epoch
 
-    wandb_run = wandb.init(entity="hails",
-                           project="TagNet - NumObj dk",
+    wandb_run = wandb.init(
                            config=args.__dict__,
                            name="[TagnetMLP]MSC_UniqueDomain_LpFixed_probGB_Entropy_lr:" + str(args.lr)
                                 + "_Batch:" + str(args.batch_size)
