@@ -1,0 +1,57 @@
+program: sweep_MSC_everysweep_fixedlambdap.py  # 1단계에서 작성한 스크립트
+entity: hails # 본인 wandb 계정명으로 변경
+project: TagNet MSC sweep everything schedule 16 fixedlambdap
+method: bayes      # 탐색 방법: bayes
+metric:
+  name: Test/Best Avg Accuracy
+  goal: maximize
+
+
+parameters:
+  reg_alpha:
+    # 0.0001 ~ 0.1 사이의 로그 스케일에서 무작위 값 선택
+    distribution: log_uniform_values 
+    min: 0.0001
+    max: 0.1
+
+  reg_beta:
+    # 0.0001 ~ 0.1 사이의 로그 스케일에서 무작위 값 선택
+    distribution: log_uniform_values 
+    min: 0.0001
+    max: 0.1
+
+  disc_lr:
+    # 3, 4, 5, 6, 7 중 정수 값 무작위 선택
+    distribution: log_uniform_values 
+    min: 0.01
+    max: 1
+
+  switcher_lr:
+    # 3, 4, 5, 6, 7 중 정수 값 무작위 선택
+    distribution: log_uniform_values 
+    min: 0.01
+    max: 1
+
+  lambda_p:
+    # 0.001 ~ 1 사이의 로그 스케일에서 무작위 값 선택
+    distribution: log_uniform_values 
+    min: 0.001
+    max: 2
+
+  lr_domain:
+    # 0.001 ~ 1 사이의 로그 스케일에서 무작위 값 선택
+    distribution: log_uniform_values 
+    min: 0.001
+    max: 0.01
+
+  lr_domain_min:
+    # 0.001 ~ 1 사이의 로그 스케일에서 무작위 값 선택
+    distribution: log_uniform_values 
+    min: 0.00000001
+    max: 0.001
+
+
+  lr_domain_prop:
+    distribution: uniform
+    min: 0
+    max: 1
